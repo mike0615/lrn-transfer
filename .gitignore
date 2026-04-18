@@ -1,0 +1,14 @@
+BUILD/
+RPMS/
+SRPMS/
+SOURCES/*.tar.gz
+BUILDROOT/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+*.egg-info/
+dist/
+.eggs/

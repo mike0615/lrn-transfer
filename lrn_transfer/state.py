@@ -125,6 +125,15 @@ class StateDB:
             """).fetchone()
         return dict(row) if row else {}
 
+    def purge_old(self, keep_days: int = 90) -> int:
+        """Delete transfer records older than keep_days. Returns number of rows deleted."""
+        import time
+        cutoff = time.time() - (keep_days * 86400)
+        with self._conn() as conn:
+            cur = conn.execute("DELETE FROM transfers WHERE ts < ?", (cutoff,))
+            conn.execute("VACUUM")
+        return cur.rowcount
+
 
 def sha256_file(path: str, chunk: int = 65536) -> str:
     h = hashlib.sha256()

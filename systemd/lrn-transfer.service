@@ -1,0 +1,41 @@
+[Unit]
+Description=LRN Air-Gap File Transfer Daemon
+Documentation=https://github.com/mike0615/lrn-transfer
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=lrn-transfer
+Group=lrn-transfer
+WorkingDirectory=/opt/lrn-transfer
+
+ExecStart=/opt/lrn-transfer/venv/bin/python3 /opt/lrn-transfer/lrn-transferd.py \
+    --config /etc/lrn-transfer/lrn-transfer.conf
+
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=30
+
+# Give workers time to finish current transfer on stop
+KillSignal=SIGTERM
+KillMode=mixed
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="HOME=/var/lib/lrn-transfer"
+
+# Logging — journalctl -u lrn-transfer -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lrn-transfer
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/mnt/transfer /var/log/lrn-transfer /var/lib/lrn-transfer /etc/lrn-transfer
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

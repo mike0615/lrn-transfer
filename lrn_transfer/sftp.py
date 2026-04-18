@@ -82,10 +82,11 @@ def sftp_session(host: str, port: int, user: str,
 
 def list_remote_files(host: str, port: int, user: str, remote_dir: str,
                       key_path: str = '', password: str = '',
-                      timeout: int = 30) -> List[str]:
+                      timeout: int = 30) -> Optional[List[str]]:
     """
     Return a list of plain filenames (not directories) in remote_dir.
-    Returns [] on any error (logged).
+    Returns None on connection failure (caller applies backoff).
+    Returns [] if directory is empty or listing succeeds with no files.
     """
     try:
         with sftp_session(host, port, user, key_path, password, timeout) as sftp:
@@ -98,7 +99,7 @@ def list_remote_files(host: str, port: int, user: str, remote_dir: str,
             return files
     except Exception as exc:
         log.error("Failed to list remote dir %s:%s — %s", host, remote_dir, exc)
-        return []
+        return None
 
 
 def upload_file(local_path: str, host: str, port: int, user: str,

@@ -1,0 +1,185 @@
+# =============================================================================
+# lrn-transfer.conf — Air-Gap File Transfer Daemon Configuration
+# =============================================================================
+# Copy this file to ~/.lrn_transfer/lrn-transfer.conf and edit as needed.
+# For system-wide installs: /etc/lrn-transfer/lrn-transfer.conf
+#
+# All settings are optional — defaults are shown in comments.
+# =============================================================================
+
+[general]
+
+# Path to the rotating log file.
+# Default: /var/log/lrn-transfer/lrn-transfer.log
+log_file = /var/log/lrn-transfer/lrn-transfer.log
+
+# Log level: DEBUG, INFO, WARNING, ERROR
+# Default: INFO
+log_level = INFO
+
+# SQLite database for transfer audit trail and deduplication.
+# Default: ~/.lrn_transfer/state.db
+state_db = /var/lib/lrn-transfer/state.db
+
+# Seconds between inbound polls (checking transfer PC for new files).
+# Default: 60
+poll_interval = 60
+
+# Seconds between outbox scans (checking local outbox for files to send).
+# Default: 10
+outbox_interval = 10
+
+# A file must be unchanged for this many seconds before it is transferred.
+# Prevents uploading files that are still being written.
+# Default: 5
+file_stable_secs = 5
+
+# Automatically purge state DB records older than this many days.
+# Set to 0 to disable automatic purge.
+# Default: 90
+purge_older_than_days = 90
+
+
+# =============================================================================
+# [nfs] — Local directory paths
+# =============================================================================
+# These can be local paths or NFS mounts. The daemon manages:
+#   outbox/    — Drop files here to send to the transfer PC
+#   inbox/     — Files downloaded from the transfer PC appear here
+#   processed/ — Successfully sent files are archived here (timestamped)
+#   failed/    — Files that failed to transfer are moved here
+# =============================================================================
+
+[nfs]
+
+# Where users/scripts drop files to be sent.
+inbox_path     = /mnt/transfer/inbox
+outbox_path    = /mnt/transfer/outbox
+processed_path = /mnt/transfer/processed
+failed_path    = /mnt/transfer/failed
+
+
+# =============================================================================
+# [sftp_out] — Transfer PC connection for SENDING files
+# =============================================================================
+# Used by OutboxWorker: uploads files from outbox/ to transfer PC.
+# Leave host empty to disable outbound transfers.
+# =============================================================================
+
+[sftp_out]
+
+# Hostname or IP of the transfer PC.
+# Leave empty to disable outbound transfers.
+host = 192.168.1.100
+
+# SSH port (default: 22)
+port = 22
+
+# SSH username on the transfer PC
+user = transfer
+
+# Path to SSH private key (Ed25519, RSA, or ECDSA).
+# Recommended over password auth.
+# Example: /etc/lrn-transfer/keys/id_ed25519_out
+key_path = /etc/lrn-transfer/keys/id_ed25519_out
+
+# Password (used only if key_path is empty)
+# password = s3cr3t
+
+# Remote directory on the transfer PC where files are deposited.
+remote_dir = /transfer/incoming
+
+# SFTP connection timeout in seconds.
+timeout = 30
+
+
+# =============================================================================
+# [sftp_in] — Transfer PC connection for RECEIVING files
+# =============================================================================
+# Used by InboundWorker: polls transfer PC, downloads to inbox/.
+# Leave host empty to disable inbound transfers.
+# =============================================================================
+
+[sftp_in]
+
+# Hostname or IP of the transfer PC.
+# Leave empty to disable inbound transfers.
+host = 192.168.1.100
+
+# SSH port (default: 22)
+port = 22
+
+# SSH username on the transfer PC
+user = transfer
+
+# Path to SSH private key for inbound connections.
+# Can be the same key as sftp_out or a separate one.
+key_path = /etc/lrn-transfer/keys/id_ed25519_in
+
+# Password (used only if key_path is empty)
+# password = s3cr3t
+
+# Remote directory on the transfer PC where incoming files appear.
+remote_dir = /transfer/outgoing
+
+# Delete files from the transfer PC after successful download.
+# Set to false to leave files on the transfer PC (manual cleanup required).
+# Default: true
+delete_after_get = true
+
+# SFTP connection timeout in seconds.
+timeout = 30
+
+
+# =============================================================================
+# [xmpp] — XMPP instant message notifications
+# =============================================================================
+# Sends a message to notify_jid when a file is received.
+# Works with ejabberd, Prosody, openfire, and other standard XMPP servers.
+# Uses pure-Python XMPP (no slixmpp dependency).
+# =============================================================================
+
+[xmpp]
+
+# Set to true to enable XMPP notifications.
+enabled = false
+
+# Bot JID (Jabber ID): the account lrn-transfer sends FROM.
+# This account must exist on your XMPP server.
+jid = lrn-transfer@xmpp.lrn.local
+
+# Password for the bot account.
+password = changeme
+
+# XMPP server hostname (leave empty to derive from JID domain).
+server = xmpp.lrn.local
+
+# XMPP server port (default: 5222)
+port = 5222
+
+# JID to send notifications TO (your personal account).
+notify_jid = admin@xmpp.lrn.local
+
+# Use STARTTLS. Recommended for LAN deployments with valid cert.
+use_tls = true
+
+
+# =============================================================================
+# [webhook] — Webhook notifications (Mattermost, RocketChat, Slack-compatible)
+# =============================================================================
+# Posts a JSON message to a webhook URL when a file is received.
+# =============================================================================
+
+[webhook]
+
+# Set to true to enable webhook notifications.
+enabled = false
+
+# Full webhook URL.
+# Mattermost: System Console → Integrations → Incoming Webhooks
+# Example: http://mattermost.lrn.local:8065/hooks/abcxyz123
+url = http://mattermost.lrn.local:8065/hooks/PASTE_WEBHOOK_TOKEN_HERE
+
+# Optional bearer token for authenticated webhooks.
+# Leave empty for anonymous webhooks (most Mattermost setups don't need this).
+# token = Bearer eyJ...

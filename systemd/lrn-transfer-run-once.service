@@ -1,0 +1,27 @@
+[Unit]
+Description=LRN Air-Gap File Transfer — Run Once (cron mode)
+Documentation=https://github.com/mike0615/lrn-transfer
+After=network.target
+
+[Service]
+Type=oneshot
+User=lrn-transfer
+Group=lrn-transfer
+WorkingDirectory=/opt/lrn-transfer
+
+ExecStart=/opt/lrn-transfer/venv/bin/python3 /opt/lrn-transfer/lrn-transferd.py \
+    --config /etc/lrn-transfer/lrn-transfer.conf \
+    --run-once
+
+Environment="PYTHONUNBUFFERED=1"
+Environment="HOME=/var/lib/lrn-transfer"
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lrn-transfer
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/mnt/transfer /var/log/lrn-transfer /var/lib/lrn-transfer /etc/lrn-transfer
+ProtectHome=true

@@ -1,0 +1,14 @@
+[Unit]
+Description=LRN Air-Gap File Transfer — Periodic Run (every 5 minutes)
+Documentation=https://github.com/mike0615/lrn-transfer
+
+[Timer]
+# Run every 5 minutes
+OnCalendar=*:0/5
+# Run immediately on boot if last run was missed
+Persistent=true
+# Randomize start within 30s to avoid thundering herd on multi-server setups
+RandomizedDelaySec=30
+
+[Install]
+WantedBy=timers.target

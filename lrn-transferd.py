@@ -178,6 +178,18 @@ def main():
     log.info("  XMPP enabled   : %s", cfg.xmpp.enabled)
     log.info("  Webhook enabled: %s", cfg.webhook.enabled)
 
+    def _maintenance_loop():
+        """Daily: purge old state DB records."""
+        while _running.is_set():
+            _running.wait(timeout=86400)
+            if not _running.is_set():
+                break
+            days = cfg.general.purge_older_than_days
+            if days > 0:
+                n = db.purge_old(days)
+                if n:
+                    log.info("Maintenance: purged %d records older than %d days", n, days)
+
     threads = [
         threading.Thread(
             target=_outbox_loop,
@@ -189,6 +201,11 @@ def main():
             target=_inbound_loop,
             args=(inbound_worker, cfg.general.poll_interval),
             name='inbound',
+            daemon=True,
+        ),
+        threading.Thread(
+            target=_maintenance_loop,
+            name='maintenance',
             daemon=True,
         ),
     ]

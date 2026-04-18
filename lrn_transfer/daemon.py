@@ -11,7 +11,7 @@ import shutil
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from .config import AppConfig
 from .notify import send_notification
@@ -57,6 +57,11 @@ def _move_file(src: str, dst_dir: str, rename: Optional[str] = None) -> str:
 # Outbox Worker
 # ---------------------------------------------------------------------------
 
+def _backoff_wait(failures: int, base: float = 5.0, cap: float = 300.0) -> float:
+    """Exponential backoff: base * 2^failures, capped at cap seconds."""
+    return min(base * (2 ** failures), cap)
+
+
 class OutboxWorker:
     """
     Scans the outbox directory for files and SFTPs them to the transfer PC.
@@ -65,8 +70,9 @@ class OutboxWorker:
     """
 
     def __init__(self, cfg: AppConfig, db: StateDB):
-        self.cfg = cfg
-        self.db  = db
+        self.cfg              = cfg
+        self.db               = db
+        self._consecutive_failures = 0
 
     def run_once(self):
         """Process all pending files in outbox. Called on each poll cycle."""
@@ -137,7 +143,21 @@ class OutboxWorker:
                     size_bytes=size, sha256=digest,
                     message=msg, remote_host=so.host,
                 )
+                self._consecutive_failures = 0
                 log.info("Sent and archived: %s → %s", filename, archived)
+                # Notify on successful send
+                size_line = f"  Size : {size:,} bytes\n" if size else ""
+                notification = (
+                    f"[lrn-transfer] File sent to transfer PC:\n"
+                    f"  File : {filename}\n"
+                    f"{size_line}"
+                    f"  To   : {so.host}:{so.remote_dir}\n"
+                )
+                send_notification(
+                    notification,
+                    xmpp_cfg=self.cfg.xmpp,
+                    webhook_cfg=self.cfg.webhook,
+                )
             else:
                 failed_path = _move_file(local_path, failed, _timestamped_name(filename))
                 self.db.record(
@@ -145,7 +165,11 @@ class OutboxWorker:
                     size_bytes=size, sha256=digest,
                     message=msg, remote_host=so.host,
                 )
-                log.error("Transfer failed, moved to failed/: %s — %s", filename, msg)
+                self._consecutive_failures += 1
+                wait = _backoff_wait(self._consecutive_failures)
+                log.error("Transfer failed, moved to failed/: %s — %s (backoff %.0fs)",
+                          filename, msg, wait)
+                time.sleep(wait)
 
 
 # ---------------------------------------------------------------------------
@@ -159,8 +183,9 @@ class InboundWorker:
     """
 
     def __init__(self, cfg: AppConfig, db: StateDB):
-        self.cfg = cfg
-        self.db  = db
+        self.cfg                   = cfg
+        self.db                    = db
+        self._consecutive_failures = 0
 
     def run_once(self):
         """Poll transfer PC once. Called on each inbound poll cycle."""
@@ -183,6 +208,16 @@ class InboundWorker:
             password   = si.password,
             timeout    = si.timeout,
         )
+
+        if remote_files is None:
+            # Connection failure
+            self._consecutive_failures += 1
+            wait = _backoff_wait(self._consecutive_failures)
+            log.error("Inbound poll: connection to %s failed (backoff %.0fs)", si.host, wait)
+            time.sleep(wait)
+            return
+
+        self._consecutive_failures = 0
 
         if not remote_files:
             log.debug("Inbound poll: nothing available on %s:%s", si.host, si.remote_dir)
@@ -224,10 +259,11 @@ class InboundWorker:
                 )
 
                 # Notify
+                size_line = f"  Size : {size:,} bytes\n" if size else ""
                 notification = (
                     f"[lrn-transfer] New file received in inbox:\n"
                     f"  File : {filename}\n"
-                    f"  Size : {size:,} bytes\n" if size else f"  File : {filename}\n"
+                    f"{size_line}"
                     f"  From : {si.host}:{si.remote_dir}\n"
                     f"  Path : {inbox}/{filename}"
                 )

@@ -16,12 +16,13 @@ DEFAULT_CONFIG_PATH = Path.home() / '.lrn_transfer' / 'lrn-transfer.conf'
 
 @dataclass
 class GeneralConfig:
-    log_file:         str  = '/var/log/lrn-transfer/lrn-transfer.log'
-    log_level:        str  = 'INFO'
-    state_db:         str  = str(Path.home() / '.lrn_transfer' / 'state.db')
-    poll_interval:    int  = 60      # seconds between inbound polls
-    outbox_interval:  int  = 10      # seconds between outbox scans
-    file_stable_secs: int  = 5       # seconds a file must be unchanged before transfer
+    log_file:              str  = '/var/log/lrn-transfer/lrn-transfer.log'
+    log_level:             str  = 'INFO'
+    state_db:              str  = str(Path.home() / '.lrn_transfer' / 'state.db')
+    poll_interval:         int  = 60
+    outbox_interval:       int  = 10
+    file_stable_secs:      int  = 5
+    purge_older_than_days: int  = 90
 
 
 @dataclass
@@ -121,12 +122,13 @@ def load_config(path: Optional[str] = None) -> AppConfig:
         pass
 
     g = GeneralConfig(
-        log_file        = _get(cp, 'general', 'log_file', '/var/log/lrn-transfer/lrn-transfer.log'),
-        log_level       = _get(cp, 'general', 'log_level', 'INFO').upper(),
-        state_db        = _get(cp, 'general', 'state_db', str(Path.home() / '.lrn_transfer' / 'state.db')),
-        poll_interval   = _getint(cp, 'general', 'poll_interval', 60),
-        outbox_interval = _getint(cp, 'general', 'outbox_interval', 10),
-        file_stable_secs = _getint(cp, 'general', 'file_stable_secs', 5),
+        log_file              = _get(cp, 'general', 'log_file', '/var/log/lrn-transfer/lrn-transfer.log'),
+        log_level             = _get(cp, 'general', 'log_level', 'INFO').upper(),
+        state_db              = _get(cp, 'general', 'state_db', str(Path.home() / '.lrn_transfer' / 'state.db')),
+        poll_interval         = _getint(cp, 'general', 'poll_interval', 60),
+        outbox_interval       = _getint(cp, 'general', 'outbox_interval', 10),
+        file_stable_secs      = _getint(cp, 'general', 'file_stable_secs', 5),
+        purge_older_than_days = _getint(cp, 'general', 'purge_older_than_days', 90),
     )
 
     n = NfsConfig(
